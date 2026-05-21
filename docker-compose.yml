@@ -1,0 +1,35 @@
+services:
+  pointage-bus:
+    build: .
+    image: pointage-bus:latest
+    container_name: pointage-bus
+    restart: unless-stopped
+    ports:
+      - "8088:8088"
+    environment:
+      TZ: ${TZ:-Europe/Paris}
+      GOOGLE_SHEET_ID: ${GOOGLE_SHEET_ID}
+      GOOGLE_SHEET_TAB: ${GOOGLE_SHEET_TAB:-Sheet1}
+      GOOGLE_SERVICE_ACCOUNT_FILE: /secrets/service-account.json
+      COL_DATE: ${COL_DATE:-Date}
+      COL_ALLER: ${COL_ALLER:-Aller}
+      COL_RETOUR: ${COL_RETOUR:-Retour}
+      DATE_FORMAT: ${DATE_FORMAT:-%Y-%m-%d}
+      TIME_FORMAT: ${TIME_FORMAT:-%H:%M}
+      MORNING_CUTOFF_HOUR: ${MORNING_CUTOFF_HOUR:-12}
+      GOOGLE_SHEET_TAB_OCCASIONNEL: ${GOOGLE_SHEET_TAB_OCCASIONNEL:-Sheet2}
+      COL_OCC_DATE: ${COL_OCC_DATE:-Date}
+      COL_OCC_HEURE_DEPART: ${COL_OCC_HEURE_DEPART:-Heure départ}
+      COL_OCC_HEURE_ARRIVEE: ${COL_OCC_HEURE_ARRIVEE:-Heure arrivée}
+      COL_OCC_KM_DEPART: ${COL_OCC_KM_DEPART:-Km départ}
+      COL_OCC_KM_ARRIVEE: ${COL_OCC_KM_ARRIVEE:-Km arrivée}
+      COL_OCC_KM_TOTAL: ${COL_OCC_KM_TOTAL:-Km total}
+      COL_OCC_ADULTES: ${COL_OCC_ADULTES:-Adultes}
+      COL_OCC_ENFANTS: ${COL_OCC_ENFANTS:-Enfants}
+      MAX_KM: ${MAX_KM:-9999999}
+      MAX_PASSENGERS_OCC: ${MAX_PASSENGERS_OCC:-99}
+      APP_PASSWORD: ${APP_PASSWORD}
+      SESSION_SECRET: ${SESSION_SECRET}
+      SESSION_LIFETIME_DAYS: ${SESSION_LIFETIME_DAYS:-30}
+    volumes:
+      - ./secrets:/secrets:ro
