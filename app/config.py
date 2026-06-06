@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     app_password: str = Field(..., description="Mot de passe d'accès à l'app.")
     session_secret: str = Field(..., min_length=16, description="Clé de signature des cookies.")
     session_lifetime_days: int = Field(30, ge=1, le=365)
+    cookie_secure: bool = Field(
+        False, description="Émettre le cookie de session en Secure (HTTPS uniquement)."
+    )
 
     max_passengers: int = 999
 

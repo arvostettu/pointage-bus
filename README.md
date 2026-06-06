@@ -59,10 +59,12 @@ Conçu pour tourner dans un conteneur Docker sur un serveur Unraid.
 | `TZ` | `Europe/Paris` | Fuseau horaire pour la détection matin/soir |
 | `MORNING_CUTOFF_HOUR` | `12` | Heure locale en dessous de laquelle = Aller |
 | `MAX_KM` | `9999999` | Plafond de validation du kilométrage |
+| `MAX_PASSENGERS` | `999` | Plafond de passagers (service régulier) |
 | `MAX_PASSENGERS_OCC` | `99` | Plafond adultes/enfants par catégorie (service occasionnel) |
 | `APP_PASSWORD` | — | Mot de passe d'accès à l'app |
 | `SESSION_SECRET` | — | Clé pour signer les cookies (16+ caractères, random) |
 | `SESSION_LIFETIME_DAYS` | `30` | Durée du cookie de session |
+| `COOKIE_SECURE` | `false` | Cookie en `Secure` ; passer à `true` si servi en HTTPS |
 
 Générer un `SESSION_SECRET` :
 
@@ -159,9 +161,12 @@ supprimée de Sheet2 après confirmation.
   pour un usage perso sur LAN.
 - **N'exposez pas le port directement à Internet.** Si vous voulez y accéder
   hors LAN, mettez-la derrière un reverse proxy avec HTTPS (SWAG, Nginx Proxy
-  Manager, Tailscale, etc.).
-- Le fichier `service-account.json` ne doit jamais être commit ; il est
-  ignoré par `.gitignore` et `.dockerignore`.
+  Manager, Tailscale, etc.). Dans ce cas, passez `COOKIE_SECURE=true`.
+- Le fichier `service-account.json` ne doit **jamais** être commit ; le dossier
+  `secrets/` est ignoré par `.gitignore` et `.dockerignore`. S'il a déjà été
+  poussé un jour, **révoquez la clé** dans Google Cloud Console et régénérez-en
+  une : la retirer du dépôt ne suffit pas, elle reste dans l'historique git
+  (purge nécessaire via `git filter-repo` ou BFG).
 
 ---
 
