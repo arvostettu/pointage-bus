@@ -8,18 +8,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 COPY pyproject.toml ./
-RUN pip install --no-cache-dir \
-        "fastapi>=0.115" \
-        "uvicorn[standard]>=0.32" \
-        "jinja2>=3.1" \
-        "itsdangerous>=2.2" \
-        "pydantic>=2.9" \
-        "pydantic-settings>=2.6" \
-        "gspread>=6.1" \
-        "google-auth>=2.35" \
-        "python-multipart>=0.0.12"
-
 COPY app ./app
+RUN pip install --no-cache-dir .
 
 EXPOSE 8088
 

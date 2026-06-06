@@ -27,7 +27,7 @@ def issue_session_cookie(response, settings: Settings) -> None:
         max_age=max_age,
         httponly=True,
         samesite="lax",
-        secure=False,  # mis derrière reverse proxy si besoin d'HTTPS
+        secure=settings.cookie_secure,
         path="/",
     )
 

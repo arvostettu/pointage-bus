@@ -226,12 +226,15 @@
         let holdTimeout = null;
         let repeatInterval = null;
         let elapsed = 0;
+        let held = false; // l'appui long a-t-il déjà incrémenté ?
 
         const startHold = () => {
             elapsed = 0;
+            held = false;
             holdTimeout = setTimeout(() => {
                 let period = 200;
                 repeatInterval = setInterval(() => {
+                    held = true;
                     changeBy(input, delta);
                     elapsed += period;
                     if (elapsed > 1000 && period > 60) {
@@ -250,6 +253,7 @@
 
         btn.addEventListener("click", (e) => {
             e.preventDefault();
+            if (held) { held = false; return; } // l'appui long a déjà compté
             changeBy(input, delta);
         });
         btn.addEventListener("pointerdown", (e) => { e.preventDefault(); startHold(); });

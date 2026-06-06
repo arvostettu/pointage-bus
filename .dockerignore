@@ -1,0 +1,13 @@
+# N'envoie pas ces fichiers au démon Docker lors du build
+.git/
+.gitignore
+.dockerignore
+secrets/
+.env
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+tests/
+README.md

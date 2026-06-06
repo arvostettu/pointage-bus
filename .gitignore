@@ -1,0 +1,11 @@
+# Secrets — ne JAMAIS committer la clé du compte de service
+secrets/
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/

@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, time
 from pathlib import Path
 from typing import Optional
@@ -17,8 +18,16 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 app = FastAPI(title="Pointage Bus", docs_url=None, redoc_url=None)
 
+log = logging.getLogger("pointage")
+
 _sheets_client: Optional[SheetsClient] = None
 _occasional_client: Optional[OccasionalClient] = None
+
+
+def _google_error_message(exc: Exception) -> str:
+    """Journalise une erreur Google inattendue côté serveur et renvoie le message UI."""
+    log.exception("Erreur inattendue lors d'un appel Google Sheets")
+    return f"Erreur Google : {exc}"
 
 
 def get_sheets_client(settings: Settings) -> SheetsClient:
@@ -147,7 +156,7 @@ def home(request: Request) -> Response:
     try:
         in_progress = get_occasional_client(settings).find_in_progress() is not None
     except Exception:
-        pass
+        log.warning("Impossible de vérifier le trajet en cours sur l'accueil", exc_info=True)
     return templates.TemplateResponse(
         request, "home.html", {"in_progress": in_progress}
     )
@@ -171,7 +180,7 @@ def regulier(request: Request) -> Response:
     except SheetError as exc:
         sheet_error = str(exc)
     except Exception as exc:
-        sheet_error = f"Erreur Google : {exc}"
+        sheet_error = _google_error_message(exc)
 
     return templates.TemplateResponse(
         request,
@@ -234,7 +243,7 @@ def regulier_submit(
     except SheetError as exc:
         flash = {"kind": "error", "message": str(exc)}
     except Exception as exc:
-        flash = {"kind": "error", "message": f"Erreur Google : {exc}"}
+        flash = {"kind": "error", "message": _google_error_message(exc)}
 
     ctx = _regulier_context(settings)
     return templates.TemplateResponse(
@@ -274,7 +283,7 @@ def regulier_correct(request: Request, count: int = Form(...)) -> Response:
     except SheetError as exc:
         flash = {"kind": "error", "message": str(exc)}
     except Exception as exc:
-        flash = {"kind": "error", "message": f"Erreur Google : {exc}"}
+        flash = {"kind": "error", "message": _google_error_message(exc)}
 
     ctx = _regulier_context(settings)
     return templates.TemplateResponse(
@@ -310,7 +319,7 @@ def _render_occasionnel(
         except SheetError as exc:
             sheet_error = str(exc)
         except Exception as exc:
-            sheet_error = f"Erreur Google : {exc}"
+            sheet_error = _google_error_message(exc)
 
     now = now_local(settings.tz)
     return templates.TemplateResponse(
@@ -385,7 +394,7 @@ def occasionnel_montee(
         )
     except Exception as exc:
         return _render_occasionnel(
-            request, settings, flash={"kind": "error", "message": f"Erreur Google : {exc}"}
+            request, settings, flash={"kind": "error", "message": _google_error_message(exc)}
         )
 
     return _render_occasionnel(request, settings, flash=flash)
@@ -422,7 +431,7 @@ def occasionnel_montee_edit(
         )
     except Exception as exc:
         return _render_occasionnel(
-            request, settings, flash={"kind": "error", "message": f"Erreur Google : {exc}"}
+            request, settings, flash={"kind": "error", "message": _google_error_message(exc)}
         )
 
     return _render_occasionnel(request, settings, flash=flash)
@@ -459,7 +468,7 @@ def occasionnel_descente(
         )
     except Exception as exc:
         return _render_occasionnel(
-            request, settings, flash={"kind": "error", "message": f"Erreur Google : {exc}"}
+            request, settings, flash={"kind": "error", "message": _google_error_message(exc)}
         )
 
     return _render_occasionnel(request, settings, flash=flash)
@@ -482,7 +491,7 @@ def occasionnel_abandonner(request: Request, row: int = Form(...)) -> Response:
         )
     except Exception as exc:
         return _render_occasionnel(
-            request, settings, flash={"kind": "error", "message": f"Erreur Google : {exc}"}
+            request, settings, flash={"kind": "error", "message": _google_error_message(exc)}
         )
 
     return _render_occasionnel(request, settings, flash=flash)
