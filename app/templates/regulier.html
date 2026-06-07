@@ -10,6 +10,12 @@
                 {% if detected_service == "aller" %}Aller (matin){% else %}Retour (soir){% endif %}
             </span>
         </div>
+        {% if today %}
+        <div class="muted small" style="margin-top:6px;">
+            Aujourd'hui — Aller : <strong>{{ today.aller or "—" }}</strong>
+            · Retour : <strong>{{ today.retour or "—" }}</strong>
+        </div>
+        {% endif %}
     </div>
     <form method="post" action="/logout" style="margin:0;">
         <button type="submit" class="secondary" style="width:auto; padding:8px 12px; font-size:14px;">Déconnexion</button>
@@ -27,6 +33,7 @@
 <form method="post" action="/regulier/submit" class="card">
     <label for="count">Passagers</label>
     <input id="count" name="count" type="number" min="0" max="{{ max_passengers }}"
+           value="{{ submitted_count if submitted_count is not none else '' }}"
            inputmode="numeric" pattern="[0-9]*" autocomplete="off" autofocus required />
 
     <details>

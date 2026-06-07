@@ -5,6 +5,7 @@ from app.parsing import (
     _parse_date_loose,
     _parse_int_loose,
     _parse_time_loose,
+    scan_last_int,
 )
 
 
@@ -51,3 +52,23 @@ def test_parse_int_loose_thousands_and_decimal():
 def test_parse_int_loose_invalid_and_empty():
     assert _parse_int_loose("") is None
     assert _parse_int_loose("abc") is None
+
+
+def test_scan_last_int_returns_last_filled_skipping_header():
+    rows = [
+        ["Date", "Km arrivée"],  # en-tête, ignoré
+        ["2026-06-01", "1000"],
+        ["2026-06-02", "1250"],
+        ["2026-06-03", ""],  # trajet en cours, arrivée vide
+    ]
+    assert scan_last_int(rows, 2) == 1250
+
+
+def test_scan_last_int_none_when_all_empty_or_header_only():
+    assert scan_last_int([["Date", "Km"], ["2026-06-01", ""]], 2) is None
+    assert scan_last_int([["Date", "Km"]], 2) is None
+
+
+def test_scan_last_int_tolerates_short_rows():
+    rows = [["Date", "Km"], ["2026-06-01"], ["2026-06-02", "42"]]
+    assert scan_last_int(rows, 2) == 42

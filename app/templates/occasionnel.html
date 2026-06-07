@@ -85,25 +85,31 @@
 <form method="post" action="/occasionnel/montee" class="card">
     <div class="field">
         <label for="trip_date">Date</label>
-        <input id="trip_date" name="trip_date" type="date" value="{{ date_str }}" required />
+        <input id="trip_date" name="trip_date" type="date" value="{{ form.trip_date if form else date_str }}" required />
     </div>
 
     <div class="field">
         <label for="heure_depart">Heure de départ</label>
-        <input id="heure_depart" name="heure_depart" type="time" value="{{ time_str }}" required />
+        <input id="heure_depart" name="heure_depart" type="time" value="{{ form.heure_depart if form else time_str }}" required />
     </div>
 
     <div class="field">
         <label for="km_depart">Kilométrage de départ</label>
         <input id="km_depart" name="km_depart" type="number" min="0" max="{{ max_km }}"
+               value="{{ form.km_depart if form is not none else (km_suggestion if km_suggestion is not none else '') }}"
                inputmode="numeric" pattern="[0-9]*" autocomplete="off" required />
+        {% if not form and km_suggestion is not none %}
+        <div class="muted small" style="margin-top:6px;">
+            Pré-rempli depuis le dernier trajet ({{ km_suggestion }} km) — vérifie l'odomètre.
+        </div>
+        {% endif %}
     </div>
 
     <div class="field">
         <label for="adultes">Adultes</label>
         <div class="counter">
             <button type="button" class="counter-btn" data-target="adultes" data-delta="-1">−</button>
-            <input id="adultes" name="adultes" type="number" min="0" max="{{ max_pax }}" value="0"
+            <input id="adultes" name="adultes" type="number" min="0" max="{{ max_pax }}" value="{{ form.adultes if form else 0 }}"
                    inputmode="numeric" pattern="[0-9]*" autocomplete="off" required />
             <button type="button" class="counter-btn" data-target="adultes" data-delta="1">+</button>
         </div>
@@ -113,7 +119,7 @@
         <label for="enfants">Enfants</label>
         <div class="counter">
             <button type="button" class="counter-btn" data-target="enfants" data-delta="-1">−</button>
-            <input id="enfants" name="enfants" type="number" min="0" max="{{ max_pax }}" value="0"
+            <input id="enfants" name="enfants" type="number" min="0" max="{{ max_pax }}" value="{{ form.enfants if form else 0 }}"
                    inputmode="numeric" pattern="[0-9]*" autocomplete="off" required />
             <button type="button" class="counter-btn" data-target="enfants" data-delta="1">+</button>
         </div>
@@ -178,18 +184,21 @@
     </details>
 </div>
 
-<form method="post" action="/occasionnel/descente" class="card">
+<form method="post" action="/occasionnel/descente" class="card"
+      data-km-depart="{{ in_progress.km_depart if in_progress.km_depart is not none else '' }}">
     <input type="hidden" name="row" value="{{ in_progress.row }}" />
 
     <div class="field">
         <label for="heure_arrivee">Heure d'arrivée</label>
-        <input id="heure_arrivee" name="heure_arrivee" type="time" value="{{ time_str }}" required />
+        <input id="heure_arrivee" name="heure_arrivee" type="time" value="{{ form.heure_arrivee if form else time_str }}" required />
     </div>
 
     <div class="field">
         <label for="km_arrivee">Kilométrage d'arrivée</label>
         <input id="km_arrivee" name="km_arrivee" type="number" min="0" max="{{ max_km }}"
+               value="{{ form.km_arrivee if form is not none else '' }}"
                inputmode="numeric" pattern="[0-9]*" autocomplete="off" required />
+        <div id="km-total-live" class="muted small" style="margin-top:6px;"></div>
     </div>
 
     <button type="submit">Terminer le trajet</button>
@@ -261,6 +270,32 @@
         btn.addEventListener("pointerleave", stopHold);
         btn.addEventListener("pointercancel", stopHold);
     });
+})();
+</script>
+
+<script>
+(function () {
+    // Aperçu en direct de la distance (km arrivée − km départ) en phase 2.
+    var form = document.querySelector('form[data-km-depart]');
+    var out = document.getElementById("km-total-live");
+    if (!form || !out) return;
+    var dep = parseInt(form.dataset.kmDepart, 10);
+    var arr = document.getElementById("km_arrivee");
+    if (!arr) return;
+    function update() {
+        var a = parseInt(arr.value, 10);
+        if (isNaN(dep) || isNaN(a)) { out.textContent = ""; out.style.color = ""; return; }
+        var total = a - dep;
+        if (total < 0) {
+            out.textContent = "⚠ Arrivée (" + a + ") inférieure au départ (" + dep + ")";
+            out.style.color = "var(--error)";
+        } else {
+            out.textContent = "Distance : " + total + " km";
+            out.style.color = "";
+        }
+    }
+    arr.addEventListener("input", update);
+    update();
 })();
 </script>
 {% endblock %}

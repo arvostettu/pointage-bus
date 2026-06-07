@@ -97,6 +97,21 @@ class SheetsClient(BaseSheetClient):
             "columns": {"date": cols.date, "aller": cols.aller, "retour": cols.retour},
         }
 
+    def today_values(self, today: date) -> dict:
+        """Valeurs Aller/Retour déjà enregistrées pour `today` (None si absentes)."""
+        ws = self._worksheet()
+        cols = self._columns(ws)
+        row = self._find_date_row(ws, cols, today)
+        if row is None:
+            return {"aller": None, "retour": None}
+        values = with_retry(lambda: ws.row_values(row))
+
+        def get(col: int) -> Optional[str]:
+            value = values[col - 1] if 0 <= col - 1 < len(values) else ""
+            return value.strip() or None
+
+        return {"aller": get(cols.aller), "retour": get(cols.retour)}
+
     # ------------------------------------------------------------------
     # Écriture
     # ------------------------------------------------------------------

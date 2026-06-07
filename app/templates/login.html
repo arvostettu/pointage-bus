@@ -11,7 +11,15 @@
 <form method="post" action="/login" class="card">
     <label for="password">Mot de passe</label>
     <input id="password" name="password" type="password" autocomplete="current-password" autofocus required />
+    <label class="small" style="display:flex; align-items:center; gap:8px; text-transform:none; letter-spacing:0; margin-top:10px; color:var(--muted);">
+        <input type="checkbox" id="show-pw" style="width:auto;" /> Afficher le mot de passe
+    </label>
     <div style="height: 16px;"></div>
     <button type="submit">Se connecter</button>
 </form>
+<script>
+document.getElementById("show-pw").addEventListener("change", function (e) {
+    document.getElementById("password").type = e.target.checked ? "text" : "password";
+});
+</script>
 {% endblock %}
