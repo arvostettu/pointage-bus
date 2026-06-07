@@ -4,6 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0b5fff" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/static/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Pointage" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <title>{% block title %}Pointage Bus{% endblock %}</title>
     <style>
         :root {
@@ -142,11 +148,14 @@
 </head>
 <body>
     <main>
+        <div id="offline-banner" class="flash error" style="display:none;">
+            Hors ligne — connexion requise pour enregistrer.
+        </div>
         {% block content %}{% endblock %}
     </main>
     <script>
     (function () {
-        // Empêche le double-envoi et signale l'enregistrement en cours.
+        // 1) Anti double-envoi : désactive le bouton et affiche "…" à l'envoi.
         document.addEventListener("submit", function (e) {
             if (e.defaultPrevented) return;
             var btn = e.target.querySelector('button[type="submit"], button:not([type])');
@@ -156,14 +165,57 @@
             btn.setAttribute("aria-busy", "true");
             btn.textContent = (btn.dataset.prevLabel || "").trim() + " …";
         });
-        // Réactive les boutons si la page revient du cache (bouton Précédent).
+
+        // 2) Conscience du réseau : bannière + boutons désactivés hors ligne.
+        function updateOnline() {
+            var off = !navigator.onLine;
+            var banner = document.getElementById("offline-banner");
+            if (banner) banner.style.display = off ? "block" : "none";
+            document.querySelectorAll('form button[type="submit"]').forEach(function (b) {
+                if (off) { b.disabled = true; b.dataset.offline = "1"; }
+                else if (b.dataset.offline) { b.disabled = false; delete b.dataset.offline; }
+            });
+        }
+        window.addEventListener("online", updateOnline);
+        window.addEventListener("offline", updateOnline);
+
+        // Réactive les boutons au retour (cache de navigation) puis recalcule le réseau.
         window.addEventListener("pageshow", function () {
             document.querySelectorAll('button[aria-busy="true"]').forEach(function (b) {
                 b.disabled = false;
                 b.removeAttribute("aria-busy");
                 if (b.dataset.prevLabel) b.textContent = b.dataset.prevLabel;
             });
+            updateOnline();
         });
+
+        // 3) Confirmation avant déconnexion.
+        document.querySelectorAll('form[action="/logout"]').forEach(function (f) {
+            f.addEventListener("submit", function (e) {
+                if (!confirm("Se déconnecter ?")) e.preventDefault();
+            });
+        });
+
+        // 4) Retour haptique + disparition auto des messages de succès.
+        window.addEventListener("load", function () {
+            updateOnline();
+            var ok = document.querySelectorAll(".flash.success");
+            if (ok.length && navigator.vibrate) navigator.vibrate(30);
+            ok.forEach(function (f) {
+                setTimeout(function () {
+                    f.style.transition = "opacity .5s";
+                    f.style.opacity = "0";
+                    setTimeout(function () { f.style.display = "none"; }, 500);
+                }, 4000);
+            });
+        });
+
+        // 5) Service worker (PWA + repli hors-ligne) — ignoré hors contexte sécurisé.
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", function () {
+                navigator.serviceWorker.register("/sw.js").catch(function () {});
+            });
+        }
     })();
     </script>
 </body>

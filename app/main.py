@@ -4,7 +4,14 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    RedirectResponse,
+    Response,
+)
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from . import auth
@@ -14,9 +21,11 @@ from .service_logic import Service, detect_service, format_date, now_local
 from .sheets import SheetError, SheetsClient
 
 BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 app = FastAPI(title="Pointage Bus", docs_url=None, redoc_url=None)
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 log = logging.getLogger("pointage")
 
@@ -110,6 +119,43 @@ def healthz() -> JSONResponse:
 
 
 # ----------------------------------------------------------------------
+# PWA (manifest, service worker, page hors-ligne, statut async)
+# ----------------------------------------------------------------------
+@app.get("/manifest.webmanifest", include_in_schema=False)
+def manifest() -> FileResponse:
+    return FileResponse(
+        STATIC_DIR / "manifest.webmanifest", media_type="application/manifest+json"
+    )
+
+
+@app.get("/sw.js", include_in_schema=False)
+def service_worker() -> FileResponse:
+    return FileResponse(
+        STATIC_DIR / "sw.js",
+        media_type="application/javascript",
+        headers={"Service-Worker-Allowed": "/", "Cache-Control": "no-cache"},
+    )
+
+
+@app.get("/offline", response_class=HTMLResponse, include_in_schema=False)
+def offline(request: Request) -> Response:
+    return templates.TemplateResponse(request, "offline.html", {})
+
+
+@app.get("/api/status", include_in_schema=False)
+def api_status(request: Request) -> JSONResponse:
+    settings = get_settings()
+    if not auth.is_authenticated(request, settings):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    data = {"in_progress": False}
+    try:
+        data["in_progress"] = get_occasional_client(settings).find_in_progress() is not None
+    except Exception:
+        log.warning("api_status : échec de find_in_progress", exc_info=True)
+    return JSONResponse(data)
+
+
+# ----------------------------------------------------------------------
 # Auth
 # ----------------------------------------------------------------------
 @app.get("/login", response_class=HTMLResponse)
@@ -151,15 +197,8 @@ def home(request: Request) -> Response:
     redirect = _require_auth(request, settings)
     if redirect:
         return redirect
-    # Indicateur visuel : un trajet occasionnel est-il en cours ?
-    in_progress = False
-    try:
-        in_progress = get_occasional_client(settings).find_in_progress() is not None
-    except Exception:
-        log.warning("Impossible de vérifier le trajet en cours sur l'accueil", exc_info=True)
-    return templates.TemplateResponse(
-        request, "home.html", {"in_progress": in_progress}
-    )
+    # Rendu instantané ; l'état « trajet en cours » est chargé via /api/status.
+    return templates.TemplateResponse(request, "home.html", {})
 
 
 # ----------------------------------------------------------------------

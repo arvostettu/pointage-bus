@@ -21,13 +21,23 @@
 <a href="/occasionnel" class="card" style="display:block; text-decoration:none; color:inherit; position:relative;">
     <div style="font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
         Service occasionnel
-        {% if in_progress %}
-        <span class="pill" style="background: var(--warning); color: white; margin-left: 6px;">trajet en cours</span>
-        {% endif %}
+        <span class="pill" id="occ-badge" style="display:none; background: var(--warning); color: white; margin-left: 6px;">trajet en cours</span>
     </div>
     <div style="font-size: 24px; font-weight: 700;">Trajet en 2 temps</div>
     <div class="muted small" style="margin-top: 4px;">
         Date, heures, kilométrage, adultes &amp; enfants. Montée puis descente.
     </div>
 </a>
+<script>
+// Chargement non bloquant de l'indicateur « trajet en cours ».
+fetch("/api/status", { credentials: "same-origin" })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) {
+        if (d && d.in_progress) {
+            var b = document.getElementById("occ-badge");
+            if (b) b.style.display = "inline-block";
+        }
+    })
+    .catch(function () {});
+</script>
 {% endblock %}
