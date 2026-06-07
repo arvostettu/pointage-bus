@@ -7,6 +7,8 @@ Deux modes :
 - **Service occasionnel** (Sheet2) : trajet ponctuel saisi en 2 temps (montée puis descente) avec date, heures de départ/arrivée, kilométrage, adultes et enfants. Compteurs +/- avec appui long pour compter les passagers à la montée. La saisie partielle survit à la fermeture de l'app (stockée comme ligne brouillon dans Sheet2).
 
 Conçu pour tourner dans un conteneur Docker sur un serveur Unraid.
+Installable comme app (PWA) sur l'écran d'accueil du téléphone, avec un mode
+hors-ligne minimal (voir §4 et §6).
 
 ---
 
@@ -110,6 +112,13 @@ Réglages :
 Ouvrir l'app sur le téléphone, entrer le mot de passe (une fois, le cookie
 reste 30 jours). La page d'accueil propose deux modes.
 
+**Installer sur l'écran d'accueil (PWA).** Servie en HTTPS (voir §6), l'app peut
+être « ajoutée à l'écran d'accueil » : elle se lance alors en plein écran, comme
+une app native, avec son icône. Sur iPhone : bouton Partager → « Sur l'écran
+d'accueil ». Hors réseau, l'app s'ouvre sur une page « Hors ligne » ; la saisie
+d'un pointage nécessite la connexion (les boutons d'envoi sont alors désactivés
+et une bannière prévient).
+
 ### 4.1 Service régulier (`/regulier`)
 1. Taper le nombre de passagers, valider.
 2. Le service est détecté selon l'heure :
@@ -120,10 +129,15 @@ reste 30 jours). La page d'accueil propose deux modes.
 4. Pour corriger la dernière saisie : utiliser le second formulaire qui apparaît
    après chaque enregistrement.
 
+En haut de page, l'app affiche l'état du jour (Aller / Retour déjà enregistrés)
+pour éviter d'écraser une valeur sans le vouloir. Si un enregistrement échoue
+(réseau), le nombre saisi reste en place — rien à retaper.
+
 ### 4.2 Service occasionnel (`/occasionnel`)
 **À la montée** :
 1. Vérifier date et heure de départ (pré-remplies, modifiables).
-2. Lire le compteur kilométrique au démarrage et entrer la valeur.
+2. Lire le compteur kilométrique au démarrage et entrer la valeur (le champ est
+   pré-rempli avec le km d'arrivée du dernier trajet, modifiable).
 3. Compter les passagers avec les boutons +/- (appui long pour accélérer).
 4. « Enregistrer la montée » → une ligne brouillon est créée dans Sheet2.
 
@@ -132,7 +146,8 @@ et propose directement la phase 2.
 
 **À la descente** :
 1. Vérifier l'heure d'arrivée (pré-remplie).
-2. Lire et entrer le kilométrage d'arrivée.
+2. Lire et entrer le kilométrage d'arrivée. La distance
+   (`Km arrivée − Km départ`) s'affiche en direct sous le champ.
 3. « Terminer le trajet » → l'app calcule `Km total = Km arrivée - Km départ`
    et complète la ligne.
 
@@ -150,8 +165,8 @@ supprimée de Sheet2 après confirmation.
   avec les clés `sheet_regulier` et `sheet_occasionnel`, chacune contenant
   `tab` et `columns`. HTTP 503 si l'un des deux est mal configuré.
 - Logs : `docker logs -f pointage-bus`.
-- Si en-têtes mal nommés : la page d'accueil affiche un bandeau rouge listant
-  les colonnes manquantes.
+- Si en-têtes mal nommés : les pages régulier/occasionnel affichent un bandeau
+  rouge listant les colonnes manquantes.
 
 ---
 
@@ -162,6 +177,8 @@ supprimée de Sheet2 après confirmation.
 - **N'exposez pas le port directement à Internet.** Si vous voulez y accéder
   hors LAN, mettez-la derrière un reverse proxy avec HTTPS (SWAG, Nginx Proxy
   Manager, Tailscale, etc.). Dans ce cas, passez `COOKIE_SECURE=true`.
+  L'installation PWA et le service worker (mode hors-ligne) nécessitent aussi
+  HTTPS — en HTTP simple, l'app fonctionne mais n'est pas installable.
 - Le fichier `service-account.json` ne doit **jamais** être commit ; le dossier
   `secrets/` est ignoré par `.gitignore` et `.dockerignore`. S'il a déjà été
   poussé un jour, **révoquez la clé** dans Google Cloud Console et régénérez-en
@@ -174,7 +191,10 @@ supprimée de Sheet2 après confirmation.
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
-pip install -e .
-cp .env.example .env  # puis compléter
+pip install -e ".[dev]"          # dépendances + pytest
+cp .env.example .env             # puis compléter
 uvicorn app.main:app --reload --port 8088
 ```
+
+Lancer les tests : `pytest`.
+Régénérer les icônes PWA après modification : `python3 scripts/gen_icons.py`.
