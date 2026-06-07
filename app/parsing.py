@@ -70,3 +70,18 @@ def _parse_int_loose(value: str) -> Optional[int]:
         return int(float(value.replace(",", ".")))
     except ValueError:
         return None
+
+
+def scan_last_int(rows: list[list[str]], col: int) -> Optional[int]:
+    """Dernier entier lisible dans la colonne `col` (1-based), de bas en haut.
+
+    Ignore la ligne d'en-tête (index 0). Sert à retrouver le dernier relevé
+    d'odomètre. Fonction pure (testable sans réseau).
+    """
+    for i in range(len(rows) - 1, 0, -1):
+        row = rows[i]
+        cell = row[col - 1] if 0 <= col - 1 < len(row) else ""
+        n = _parse_int_loose(cell)
+        if n is not None:
+            return n
+    return None

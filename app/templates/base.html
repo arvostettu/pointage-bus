@@ -144,5 +144,27 @@
     <main>
         {% block content %}{% endblock %}
     </main>
+    <script>
+    (function () {
+        // Empêche le double-envoi et signale l'enregistrement en cours.
+        document.addEventListener("submit", function (e) {
+            if (e.defaultPrevented) return;
+            var btn = e.target.querySelector('button[type="submit"], button:not([type])');
+            if (!btn || btn.disabled) return;
+            btn.dataset.prevLabel = btn.textContent;
+            btn.disabled = true;
+            btn.setAttribute("aria-busy", "true");
+            btn.textContent = (btn.dataset.prevLabel || "").trim() + " …";
+        });
+        // Réactive les boutons si la page revient du cache (bouton Précédent).
+        window.addEventListener("pageshow", function () {
+            document.querySelectorAll('button[aria-busy="true"]').forEach(function (b) {
+                b.disabled = false;
+                b.removeAttribute("aria-busy");
+                if (b.dataset.prevLabel) b.textContent = b.dataset.prevLabel;
+            });
+        });
+    })();
+    </script>
 </body>
 </html>

@@ -20,6 +20,7 @@ from .sheets_base import (
     SheetError,
     _normalize,
     _parse_int_loose,
+    scan_last_int,
     with_retry,
 )
 
@@ -126,6 +127,13 @@ class OccasionalClient(BaseSheetClient):
                     enfants=_parse_int_loose(cell(cols.enfants)),
                 )
         return None
+
+    def last_km_arrivee(self) -> Optional[int]:
+        """Dernier relevé d'odomètre connu (km arrivée du dernier trajet terminé)."""
+        ws = self._worksheet()
+        cols = self._columns(ws)
+        all_values = with_retry(lambda: ws.get_all_values())
+        return scan_last_int(all_values, cols.km_arrivee)
 
     # ------------------------------------------------------------------
     # Écriture

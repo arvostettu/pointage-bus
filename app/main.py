@@ -25,9 +25,9 @@ _occasional_client: Optional[OccasionalClient] = None
 
 
 def _google_error_message(exc: Exception) -> str:
-    """Journalise une erreur Google inattendue côté serveur et renvoie le message UI."""
+    """Journalise l'erreur réelle côté serveur et renvoie un message UI lisible."""
     log.exception("Erreur inattendue lors d'un appel Google Sheets")
-    return f"Erreur Google : {exc}"
+    return "Connexion à Google impossible pour le moment. Vérifie le réseau et réessaie."
 
 
 def get_sheets_client(settings: Settings) -> SheetsClient:
@@ -165,23 +165,24 @@ def home(request: Request) -> Response:
 # ----------------------------------------------------------------------
 # Service régulier
 # ----------------------------------------------------------------------
-@app.get("/regulier", response_class=HTMLResponse)
-def regulier(request: Request) -> Response:
-    settings = get_settings()
-    redirect = _require_auth(request, settings)
-    if redirect:
-        return redirect
-
+def _render_regulier(
+    request: Request,
+    settings: Settings,
+    *,
+    flash: Optional[dict] = None,
+    sheet_error: Optional[str] = None,
+    submitted_count: Optional[int] = None,
+) -> Response:
     ctx = _regulier_context(settings)
     client = get_sheets_client(settings)
-    sheet_error: Optional[str] = None
-    try:
-        client.healthcheck()
-    except SheetError as exc:
-        sheet_error = str(exc)
-    except Exception as exc:
-        sheet_error = _google_error_message(exc)
-
+    today = None
+    if sheet_error is None:
+        try:
+            today = client.today_values(now_local(settings.tz).date())
+        except SheetError as exc:
+            sheet_error = str(exc)
+        except Exception as exc:
+            sheet_error = _google_error_message(exc)
     return templates.TemplateResponse(
         request,
         "regulier.html",
@@ -192,9 +193,20 @@ def regulier(request: Request) -> Response:
             "max_passengers": settings.max_passengers,
             "sheet_error": sheet_error,
             "last_write": client.last_write,
-            "flash": None,
+            "flash": flash,
+            "today": today,
+            "submitted_count": submitted_count,
         },
     )
+
+
+@app.get("/regulier", response_class=HTMLResponse)
+def regulier(request: Request) -> Response:
+    settings = get_settings()
+    redirect = _require_auth(request, settings)
+    if redirect:
+        return redirect
+    return _render_regulier(request, settings)
 
 
 def _validate_count(count: int, settings: Settings) -> int:
@@ -245,20 +257,9 @@ def regulier_submit(
     except Exception as exc:
         flash = {"kind": "error", "message": _google_error_message(exc)}
 
-    ctx = _regulier_context(settings)
-    return templates.TemplateResponse(
-        request,
-        "regulier.html",
-        {
-            "date_str": ctx["date_str"],
-            "detected_service": ctx["detected_service"].value,
-            "cutoff_hour": ctx["cutoff_hour"],
-            "max_passengers": settings.max_passengers,
-            "sheet_error": None,
-            "last_write": client.last_write,
-            "flash": flash,
-        },
-    )
+    # En cas d'échec, on réinjecte le nombre saisi pour ne pas le perdre.
+    submitted_count = count if flash["kind"] == "error" else None
+    return _render_regulier(request, settings, flash=flash, submitted_count=submitted_count)
 
 
 @app.post("/regulier/correct")
@@ -285,20 +286,7 @@ def regulier_correct(request: Request, count: int = Form(...)) -> Response:
     except Exception as exc:
         flash = {"kind": "error", "message": _google_error_message(exc)}
 
-    ctx = _regulier_context(settings)
-    return templates.TemplateResponse(
-        request,
-        "regulier.html",
-        {
-            "date_str": ctx["date_str"],
-            "detected_service": ctx["detected_service"].value,
-            "cutoff_hour": ctx["cutoff_hour"],
-            "max_passengers": settings.max_passengers,
-            "sheet_error": None,
-            "last_write": client.last_write,
-            "flash": flash,
-        },
-    )
+    return _render_regulier(request, settings, flash=flash)
 
 
 # ----------------------------------------------------------------------
@@ -310,12 +298,19 @@ def _render_occasionnel(
     *,
     sheet_error: Optional[str] = None,
     flash: Optional[dict] = None,
+    form: Optional[dict] = None,
 ) -> Response:
     client = get_occasional_client(settings)
     in_progress = None
+    km_suggestion = None
     if sheet_error is None:
         try:
             in_progress = client.find_in_progress()
+            if in_progress is None:
+                try:
+                    km_suggestion = client.last_km_arrivee()
+                except Exception:
+                    log.warning("Lecture du dernier km a échoué", exc_info=True)
         except SheetError as exc:
             sheet_error = str(exc)
         except Exception as exc:
@@ -333,6 +328,8 @@ def _render_occasionnel(
             "max_pax": settings.max_passengers_occ,
             "sheet_error": sheet_error,
             "flash": flash,
+            "form": form,
+            "km_suggestion": km_suggestion,
         },
     )
 
@@ -379,6 +376,13 @@ def occasionnel_montee(
     _validate_pax(enfants, settings)
 
     client = get_occasional_client(settings)
+    montee_form = {
+        "trip_date": trip_date,
+        "heure_depart": heure_depart,
+        "km_depart": km_depart,
+        "adultes": adultes,
+        "enfants": enfants,
+    }
     try:
         client.start(d, t, km_depart, adultes, enfants)
         flash = {
@@ -390,11 +394,14 @@ def occasionnel_montee(
         }
     except SheetError as exc:
         return _render_occasionnel(
-            request, settings, flash={"kind": "error", "message": str(exc)}
+            request, settings, flash={"kind": "error", "message": str(exc)}, form=montee_form
         )
     except Exception as exc:
         return _render_occasionnel(
-            request, settings, flash={"kind": "error", "message": _google_error_message(exc)}
+            request,
+            settings,
+            flash={"kind": "error", "message": _google_error_message(exc)},
+            form=montee_form,
         )
 
     return _render_occasionnel(request, settings, flash=flash)
@@ -453,6 +460,7 @@ def occasionnel_descente(
     _validate_km(km_arrivee, settings)
 
     client = get_occasional_client(settings)
+    descente_form = {"heure_arrivee": heure_arrivee, "km_arrivee": km_arrivee}
     try:
         km_total = client.finish(row, t, km_arrivee)
         flash = {
@@ -464,11 +472,14 @@ def occasionnel_descente(
         }
     except SheetError as exc:
         return _render_occasionnel(
-            request, settings, flash={"kind": "error", "message": str(exc)}
+            request, settings, flash={"kind": "error", "message": str(exc)}, form=descente_form
         )
     except Exception as exc:
         return _render_occasionnel(
-            request, settings, flash={"kind": "error", "message": _google_error_message(exc)}
+            request,
+            settings,
+            flash={"kind": "error", "message": _google_error_message(exc)},
+            form=descente_form,
         )
 
     return _render_occasionnel(request, settings, flash=flash)

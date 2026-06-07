@@ -22,6 +22,7 @@ from .parsing import (  # ré-export : point d'import unique pour les clients
     _parse_date_loose,
     _parse_int_loose,
     _parse_time_loose,
+    scan_last_int,
 )
 
 __all__ = [
@@ -33,6 +34,7 @@ __all__ = [
     "_parse_date_loose",
     "_parse_time_loose",
     "_parse_int_loose",
+    "scan_last_int",
 ]
 
 log = logging.getLogger("pointage.sheets")
